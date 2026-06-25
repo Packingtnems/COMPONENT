@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Tìm kiếm Hình ảnh Google Drive</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root {
+            --primary-color: #0ea5e9;
+            --hover-color: #0284c7;
+            --scan-color: #8b5cf6;
+            --scan-hover: #7c3aed;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+        }
+
+        .search-wrapper {
+            max-width: 800px;
+            margin: 0 auto 40px auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            text-align: center;
+        }
+
+        .search-wrapper h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--text-main);
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .search-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #searchInput {
+            padding: 12px 20px;
+            width: 400px;
+            font-size: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        #searchInput:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--hover-color);
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        #scanBtn {
+            background-color: var(--scan-color);
+        }
+        #scanBtn:hover:not(:disabled) {
+            background-color: var(--scan-hover);
+        }
+
+        button:disabled, #searchInput:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background-color: #cbd5e1;
+        }
+
+        .status-message {
+            margin-top: 15px;
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .image-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            width: 320px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .image-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .image-container {
+            width: 100%;
+            height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #f1f5f9;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .image-name {
+            margin-top: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+            word-wrap: break-word;
+            padding-bottom: 5px;
+        }
+
+        #noResultMessage {
+            text-align: center;
+            color: #ef4444;
+            display: none;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 40px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Giao diện vùng quét Camera */
+        #scanner-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #reader {
+            width: 90%;
+            max-width: 500px;
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        #closeScanBtn {
+            margin-top: 20px;
+            background-color: #ef4444;
+        }
+        #closeScanBtn:hover {
+            background-color: #dc2626;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="search-wrapper">
+        <h2>HỆ THỐNG TRA CỨU HÌNH ẢNH</h2>
+        <div class="search-controls">
+            <input type="text" id="searchInput" placeholder="Nhập mã hoặc quét QR/Barcode..." disabled>
+            <button id="searchBtn" onclick="searchImages()" disabled>Đang kết nối...</button>
+            <button id="scanBtn" onclick="openScanner()" disabled>📷 Quét Mã</button>
+        </div>
+        <div class="status-message" id="statusMessage">Đang tải đồng bộ dữ liệu từ Google Drive, vui lòng đợi...</div>
+    </div>
+
+    <div class="gallery" id="imageGallery"></div>
+    <div id="noResultMessage">Không tìm thấy hình ảnh nào khớp với mã bạn nhập.</div>
+
+    <div id="scanner-modal">
+        <div id="reader"></div>
+        <button id="closeScanBtn" onclick="closeScanner()">Đóng Camera</button>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbxw7m0YfNZavtlJ8z7Is-XjQgtIQ2yKhxVnhbkrpvgxx7XEvOs98vuqZb0CEWi18vNr/exec";
+        let driveDatabase = []; 
+        let html5QrcodeScanner; 
+
+        async function fetchDriveData() {
+            const statusMsg = document.getElementById("statusMessage");
+            const searchInput = document.getElementById("searchInput");
+            const searchBtn = document.getElementById("searchBtn");
+            const scanBtn = document.getElementById("scanBtn");
+
+            try {
+                const response = await fetch(API_URL);
+                driveDatabase = await response.json();
+                
+                statusMsg.style.color = "#16a34a";
+                statusMsg.textContent = `Đã đồng bộ thành công ${driveDatabase.length} ảnh. Sẵn sàng tìm kiếm!`;
+                searchInput.disabled = false;
+                searchBtn.disabled = false;
+                scanBtn.disabled = false;
+                searchBtn.textContent = "Tìm kiếm";
+            } catch (error) {
+                console.error("Lỗi kết nối API:", error);
+                statusMsg.style.color = "#dc2626";
+                statusMsg.textContent = "Lỗi kết nối với Google Drive. Hãy kiểm tra lại link Web App hoặc quyền chia sẻ thư mục.";
+            }
+        }
+
+        function searchImages() {
+            const query = document.getElementById("searchInput").value.toLowerCase().trim();
+            const gallery = document.getElementById("imageGallery");
+            const noResult = document.getElementById("noResultMessage");
+
+            gallery.innerHTML = "";
+
+            if (query === "") {
+                noResult.style.display = "block";
+                noResult.textContent = "Vui lòng nhập mã để tìm kiếm.";
+                return;
+            }
+
+            const filteredData = driveDatabase.filter(item => 
+                item.name.toLowerCase().includes(query)
+            );
+
+            if (filteredData.length === 0) {
+                noResult.style.display = "block";
+                noResult.textContent = "Không tìm thấy hình ảnh nào khớp với mã bạn nhập.";
+            } else {
+                noResult.style.display = "none";
+                
+                filteredData.forEach(item => {
+                    const card = document.createElement("div");
+                    card.className = "image-card";
+
+                    const imgContainer = document.createElement("div");
+                    imgContainer.className = "image-container";
+                    
+                    const img = document.createElement("img");
+                    img.src = item.url;
+                    img.alt = item.name;
+                    img.loading = "lazy"; 
+                    
+                    const title = document.createElement("div");
+                    title.className = "image-name";
+                    title.textContent = item.name;
+                    
+                    imgContainer.appendChild(img);
+                    card.appendChild(imgContainer);
+                    card.appendChild(title);
+                    gallery.appendChild(card);
+                });
+            }
+        }
+
+        document.getElementById("searchInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter" && !document.getElementById("searchInput").disabled) {
+                searchImages();
+            }
+        });
+
+        // TÍNH NĂNG QUÉT CAMERA
+        function openScanner() {
+    document.getElementById('scanner-modal').style.display = 'flex';
+    
+    html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        { 
+            fps: 10, 
+            qrbox: {width: 250, height: 250},
+            rememberLastUsedCamera: true,
+            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+            videoConstraints: {
+                facingMode: "environment" // Ép sử dụng camera sau
+            }
+        },
+        false);
+        
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+}
+
+        function closeScanner() {
+            document.getElementById('scanner-modal').style.display = 'none';
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear(); 
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            closeScanner(); // Đóng camera
+            
+            // XỬ LÝ LỌC MÃ: Lấy phần trước dấu chấm phẩy đầu tiên
+            const extractedCode = decodedText.split(';')[0];
+            
+            // Đưa phần mã đã lọc vào ô tìm kiếm
+            document.getElementById('searchInput').value = extractedCode; 
+            
+            // Tự động tìm kiếm
+            searchImages(); 
+        }
+
+        function onScanFailure(error) {
+            // Không làm gì nếu chưa quét trúng mã
+        }
+
+        fetchDriveData();
+    </script>
+</body>
+</html>
