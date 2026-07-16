@@ -1,6 +1,6 @@
 {
   "name": "Hệ thống Tra cứu Hình ảnh Google Drive",
-  "short_name": "Tra cứu Ảnh",
+  "short_name": "Kiểm Tra Hình Ảnh Linh Kiện",
   "description": "Hệ thống tra cứu hình ảnh và quét mã QR/Barcode kết nối Google Drive",
   "start_url": "index.html",
   "display": "standalone",
