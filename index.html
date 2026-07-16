@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ thống Tìm kiếm Hình ảnh Google Drive</title>
+    
+    <!-- Cấu hình PWA để cài đặt ứng dụng và hiển thị icon -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0ea5e9">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Tra cứu Ảnh">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root {
@@ -304,23 +313,23 @@
 
         // TÍNH NĂNG QUÉT CAMERA
         function openScanner() {
-    document.getElementById('scanner-modal').style.display = 'flex';
-    
-    html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader",
-        { 
-            fps: 10, 
-            qrbox: {width: 250, height: 250},
-            rememberLastUsedCamera: true,
-            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-            videoConstraints: {
-                facingMode: "environment" // Ép sử dụng camera sau
-            }
-        },
-        false);
-        
-    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-}
+            document.getElementById('scanner-modal').style.display = 'flex';
+            
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader",
+                { 
+                    fps: 10, 
+                    qrbox: {width: 250, height: 250},
+                    rememberLastUsedCamera: true,
+                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+                    videoConstraints: {
+                        facingMode: "environment" // Ép sử dụng camera sau
+                    }
+                },
+                false);
+                
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        }
 
         function closeScanner() {
             document.getElementById('scanner-modal').style.display = 'none';
@@ -347,6 +356,15 @@
         }
 
         fetchDriveData();
+
+        // ĐĂNG KÝ SERVICE WORKER ĐỂ ỨNG DỤNG CÓ THỂ CÀI ĐẶT LÊN ĐIỆN THOẠI/MÁY TÍNH
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Đăng ký Service Worker thành công!', reg))
+                    .catch(err => console.log('Đăng ký Service Worker thất bại:', err));
+            });
+        }
     </script>
 </body>
 </html>
