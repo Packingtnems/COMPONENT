@@ -1,0 +1,22 @@
+{
+  "name": "Hệ thống Tra cứu Hình ảnh Google Drive",
+  "short_name": "Tra cứu Ảnh",
+  "description": "Hệ thống tra cứu hình ảnh và quét mã QR/Barcode kết nối Google Drive",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
