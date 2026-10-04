@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ thống Tìm kiếm Hình ảnh Google Drive</title>
-    
-    <!-- Cấu hình PWA để cài đặt ứng dụng và hiển thị icon -->
+
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0ea5e9">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +12,9 @@
     <meta name="apple-mobile-web-app-title" content="Tra cứu Ảnh">
     <link rel="apple-touch-icon" href="icon-192.png">
 
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Dùng bản UMD chính thức mới nhất -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
     <style>
         :root {
             --primary-color: #0ea5e9;
@@ -64,11 +65,13 @@
         #searchInput {
             padding: 12px 20px;
             width: 400px;
+            max-width: 100%;
             font-size: 16px;
             border: 2px solid #e2e8f0;
             border-radius: 8px;
             outline: none;
             transition: all 0.3s ease;
+            box-sizing: border-box;
         }
 
         #searchInput:focus {
@@ -187,26 +190,64 @@
         #scanner-modal {
             display: none;
             position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
             z-index: 9999;
             justify-content: center;
             align-items: center;
             flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
         }
+
         #reader {
-            width: 90%;
+            width: 100%;
             max-width: 500px;
-            background: white;
-            border-radius: 10px;
-            padding: 10px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
         }
+
+        #reader video {
+            width: 100% !important;
+            height: auto !important;
+            display: block;
+        }
+
+        #reader__scan_region {
+            background: transparent !important;
+        }
+
+        #reader__dashboard {
+            display: none !important;
+        }
+
+        #scanner-hint {
+            color: #fff;
+            margin-top: 15px;
+            font-size: 15px;
+            text-align: center;
+            max-width: 500px;
+        }
+
         #closeScanBtn {
             margin-top: 20px;
             background-color: #ef4444;
+            padding: 12px 40px;
         }
         #closeScanBtn:hover {
             background-color: #dc2626;
+        }
+
+        #scan-error {
+            color: #fca5a5;
+            margin-top: 15px;
+            font-size: 14px;
+            text-align: center;
+            max-width: 500px;
+            display: none;
         }
     </style>
 </head>
@@ -227,14 +268,21 @@
 
     <div id="scanner-modal">
         <div id="reader"></div>
+        <div id="scanner-hint">Đưa mã QR / Barcode vào giữa khung hình</div>
+        <div id="scan-error"></div>
         <button id="closeScanBtn" onclick="closeScanner()">Đóng Camera</button>
     </div>
 
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbxw7m0YfNZavtlJ8z7Is-XjQgtIQ2yKhxVnhbkrpvgxx7XEvOs98vuqZb0CEWi18vNr/exec";
-        let driveDatabase = []; 
-        let html5QrcodeScanner; 
 
+        let driveDatabase = [];
+        let html5QrCode = null;   // instance class lõi
+        let isScanning = false;   // cờ chống gọi trùng
+
+        /* ============================================================
+           1) TẢI DỮ LIỆU TỪ GOOGLE DRIVE
+        ============================================================ */
         async function fetchDriveData() {
             const statusMsg = document.getElementById("statusMessage");
             const searchInput = document.getElementById("searchInput");
@@ -243,8 +291,9 @@
 
             try {
                 const response = await fetch(API_URL);
+                if (!response.ok) throw new Error("HTTP " + response.status);
                 driveDatabase = await response.json();
-                
+
                 statusMsg.style.color = "#16a34a";
                 statusMsg.textContent = `Đã đồng bộ thành công ${driveDatabase.length} ảnh. Sẵn sàng tìm kiếm!`;
                 searchInput.disabled = false;
@@ -258,6 +307,9 @@
             }
         }
 
+        /* ============================================================
+           2) TÌM KIẾM ẢNH
+        ============================================================ */
         function searchImages() {
             const query = document.getElementById("searchInput").value.toLowerCase().trim();
             const gallery = document.getElementById("imageGallery");
@@ -271,7 +323,7 @@
                 return;
             }
 
-            const filteredData = driveDatabase.filter(item => 
+            const filteredData = driveDatabase.filter(item =>
                 item.name.toLowerCase().includes(query)
             );
 
@@ -280,23 +332,23 @@
                 noResult.textContent = "Không tìm thấy hình ảnh nào khớp với mã bạn nhập.";
             } else {
                 noResult.style.display = "none";
-                
+
                 filteredData.forEach(item => {
                     const card = document.createElement("div");
                     card.className = "image-card";
 
                     const imgContainer = document.createElement("div");
                     imgContainer.className = "image-container";
-                    
+
                     const img = document.createElement("img");
                     img.src = item.url;
                     img.alt = item.name;
-                    img.loading = "lazy"; 
-                    
+                    img.loading = "lazy";
+
                     const title = document.createElement("div");
                     title.className = "image-name";
                     title.textContent = item.name;
-                    
+
                     imgContainer.appendChild(img);
                     card.appendChild(imgContainer);
                     card.appendChild(title);
@@ -305,59 +357,176 @@
             }
         }
 
-        document.getElementById("searchInput").addEventListener("keypress", function(event) {
+        document.getElementById("searchInput").addEventListener("keypress", function (event) {
             if (event.key === "Enter" && !document.getElementById("searchInput").disabled) {
                 searchImages();
             }
         });
 
-        // TÍNH NĂNG QUÉT CAMERA
-        function openScanner() {
-            document.getElementById('scanner-modal').style.display = 'flex';
-            
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader",
-                { 
-                    fps: 10, 
-                    qrbox: {width: 250, height: 250},
-                    rememberLastUsedCamera: true,
-                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-                    videoConstraints: {
-                        facingMode: "environment" // Ép sử dụng camera sau
-                    }
-                },
-                false);
-                
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        /* ============================================================
+           3) QUÉT CAMERA — dùng Html5Qrcode (class lõi)
+        ============================================================ */
+
+        function showScanError(msg) {
+            const el = document.getElementById("scan-error");
+            el.style.display = "block";
+            el.textContent = msg;
         }
 
-        function closeScanner() {
-            document.getElementById('scanner-modal').style.display = 'none';
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.clear(); 
+        function hideScanError() {
+            const el = document.getElementById("scan-error");
+            el.style.display = "none";
+            el.textContent = "";
+        }
+
+        async function openScanner() {
+            // Chống mở trùng
+            if (isScanning) return;
+
+            // Kiểm tra môi trường bảo mật (bắt buộc HTTPS / localhost)
+            const isSecure = location.protocol === "https:" ||
+                             location.hostname === "localhost" ||
+                             location.hostname === "127.0.0.1";
+            if (!isSecure) {
+                alert("Camera chỉ hoạt động khi trang được mở qua HTTPS hoặc localhost.\n\nHiện tại bạn đang mở qua: " + location.protocol + "//" + location.host +
+                      "\n\nHãy deploy lên GitHub Pages / Netlify / Vercel (đều miễn phí và có HTTPS).");
+                return;
+            }
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("Trình duyệt không hỗ trợ truy cập camera. Hãy dùng Chrome / Samsung Internet / Safari bản mới nhất.");
+                return;
+            }
+
+            // Hiện modal
+            document.getElementById('scanner-modal').style.display = 'flex';
+            hideScanError();
+
+            // Dọn dẹp instance cũ nếu còn
+            if (html5QrCode) {
+                try { await html5QrCode.stop(); } catch (e) {}
+                try { html5QrCode.clear(); } catch (e) {}
+                html5QrCode = null;
+            }
+
+            html5QrCode = new Html5Qrcode("reader", { verbose: false });
+
+            // Cấu hình quét
+            const config = {
+                fps: 10,
+                qrbox: function (viewfinderWidth, viewfinderHeight) {
+                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                    const size = Math.floor(minEdge * 0.7);
+                    return { width: size, height: size };
+                },
+                aspectRatio: 1.0,
+                disableFlip: false
+            };
+
+            try {
+                // Xin quyền + mở camera sau
+                await html5QrCode.start(
+                    { facingMode: "environment" },
+                    config,
+                    onScanSuccess,
+                    onScanFailure
+                );
+
+                isScanning = true;
+
+                // Sau khi camera mở, cố gắng bật autofocus liên tục nếu máy hỗ trợ
+                setTimeout(async () => {
+                    try {
+                        const video = document.querySelector('#reader video');
+                        if (!video || !video.srcObject) return;
+                        const track = video.srcObject.getVideoTracks()[0];
+                        if (!track) return;
+                        const caps = track.getCapabilities ? track.getCapabilities() : {};
+                        if (caps.focusMode && caps.focusMode.includes('continuous')) {
+                            await track.applyConstraints({
+                                advanced: [{ focusMode: 'continuous' }]
+                            });
+                            console.log("Đã bật autofocus liên tục");
+                        }
+                    } catch (e) {
+                        console.warn("Không thể bật focusMode:", e);
+                    }
+                }, 1500);
+
+            } catch (err) {
+                console.error("Lỗi mở camera:", err);
+                let msg = "Không thể mở camera. ";
+                if (err && err.name === "NotAllowedError") {
+                    msg += "Bạn đã từ chối quyền truy cập camera. Hãy vào Cài đặt trình duyệt → Quyền → Camera → Cho phép cho trang này.";
+                } else if (err && err.name === "NotFoundError") {
+                    msg += "Không tìm thấy camera trên thiết bị.";
+                } else if (err && err.name === "NotReadableError") {
+                    msg += "Camera đang được ứng dụng khác sử dụng. Hãy đóng ứng dụng camera khác rồi thử lại.";
+                } else {
+                    msg += (err && err.message) ? err.message : String(err);
+                }
+                showScanError(msg);
+                // Đóng modal sau khi báo lỗi
+                setTimeout(() => {
+                    if (!isScanning) {
+                        document.getElementById('scanner-modal').style.display = 'none';
+                    }
+                }, 4000);
             }
         }
 
+        async function closeScanner() {
+            document.getElementById('scanner-modal').style.display = 'none';
+            hideScanError();
+
+            if (html5QrCode) {
+                try {
+                    if (isScanning) {
+                        await html5QrCode.stop();
+                    }
+                    html5QrCode.clear();
+                } catch (e) {
+                    console.warn("Lỗi khi đóng camera:", e);
+                }
+                html5QrCode = null;
+            }
+            isScanning = false;
+        }
+
         function onScanSuccess(decodedText, decodedResult) {
-            closeScanner(); // Đóng camera
-            
-            // XỬ LÝ LỌC MÃ: Lấy phần trước dấu chấm phẩy đầu tiên
-            const extractedCode = decodedText.split(';')[0];
-            
-            // Đưa phần mã đã lọc vào ô tìm kiếm
-            document.getElementById('searchInput').value = extractedCode; 
-            
-            // Tự động tìm kiếm
-            searchImages(); 
+            // Tạm dừng để tránh gọi liên tục
+            if (!isScanning) return;
+            isScanning = false;
+
+            // Lấy phần trước dấu ; đầu tiên (nếu có)
+            const extractedCode = decodedText.split(';')[0].trim();
+
+            // Đưa vào ô tìm kiếm & tự động tìm
+            document.getElementById('searchInput').value = extractedCode;
+
+            // Đóng camera rồi tìm kiếm
+            closeScanner().then(() => {
+                searchImages();
+            });
         }
 
         function onScanFailure(error) {
-            // Không làm gì nếu chưa quét trúng mã
+            // Bỏ qua lỗi khi chưa nhận diện được mã
         }
 
+        /* ============================================================
+           4) KHỞI ĐỘNG
+        ============================================================ */
         fetchDriveData();
 
-        // ĐĂNG KÝ SERVICE WORKER ĐỂ ỨNG DỤNG CÓ THỂ CÀI ĐẶT LÊN ĐIỆN THOẠI/MÁY TÍNH
+        // Đóng modal khi bấm ESC (tiện lợi trên desktop)
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.getElementById('scanner-modal').style.display === 'flex') {
+                closeScanner();
+            }
+        });
+
+        // Đăng ký Service Worker (PWA)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
